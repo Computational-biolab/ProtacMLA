@@ -29,7 +29,6 @@
   .card { background: var(--card); border-radius: 16px; box-shadow: 0 10px 30px var(--shadow); padding: 32px; }
 
   header { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
-  header img { width: 60px; height: 60px; object-fit: contain; }
   h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: bold; color: var(--accent-dark); }
   p.lead { text-align: center; color: var(--muted); font-size: 15px; margin: 8px 0 24px; }
 
@@ -108,7 +107,7 @@
     <header>
       <h1>Peptide Mutation </h1>
     </header>
-    <p class="lead">Generate ready-to-use UCSF Chimera Python scripts with desired mutation and optional minimization.</p>
+    <p class="lead">Generate ready-to-use UCSF Chimera Python scripts with desired mutation and optional minimization. Class-wise mode can now produce every combination of selected class members.</p>
 
     <!-- Structure Input -->
     <h3>1) Structural Inputs</h3>
@@ -166,12 +165,15 @@
 
     <!-- Class-wise Mode -->
     <div id="classwise" class="hidden" style="margin-top: 20px;">
-      <label for="numClasses">Enter number of classes</label>
-      <input type="number" id="numClasses" value="1" min="1" max="5">
+      <label for="numClasses">Enter number of classes (positions)</label>
+      <input type="number" id="numClasses" value="1" min="1" max="6">
       <button class="btn" onclick="showClassFields()">Generate Class Fields</button>
       <div id="classInputs"></div>
       <button class="btn" onclick="generatePreview('classwise')">Preview Script</button>
       <button class="btn btn-outline" onclick="downloadScript('classwise')">Download Script</button>
+      <p class="lead" style="font-size:13px; margin-top:10px; color:var(--muted)">
+        Class-wise mode will create a Chimera Python script that iterates over <b>all combinations</b> (cartesian product) of selected amino-acids — one from each class — and writes an output file for each combination. Each iteration re-opens the original structure so changes do not accumulate.
+      </p>
     </div>
 
     <!-- Script Preview -->
@@ -220,13 +222,10 @@ function makeOutPrefix(path) {
   return path.replace(/\\/g, '\\\\');
 }
 
-function buildHeader() {
+function buildOpenCommand() {
   const pdbId = document.getElementById('pdbId').value.trim();
   const pdbPath = document.getElementById('pdbPath').value.trim();
-  return [
-    'from chimera import runCommand',
-    pdbId ? `runCommand("open ${pdbId}")` : `runCommand('open ${pdbPath}')`
-  ];
+  return pdbId ? `runCommand("open ${pdbId}")` : `runCommand('open ${pdbPath}')`;
 }
 
 function addMutationInputs() {
@@ -245,33 +244,15 @@ function addMutationInputs() {
   }
 }
 
-function showClassFields() {
-  const n = parseInt(document.getElementById('numClasses').value);
-  const div = document.getElementById('classInputs');
-  div.innerHTML = '';
-  for (let i = 1; i <= n; i++) {
-    div.innerHTML += `
-      <div class="row">
-        <div>
-          <select id="class${i}" onchange="updateClassMembers(${i})">
-            ${Object.keys(classes).map(k => `<option value="${k}">${k}</option>`).join('')}
-          </select>
-          <div id="classMembers${i}" class="class-members"></div>
-        </div>
-        <div><input id="cchain${i}" placeholder="Chain ID (e.g. A)"></div>
-        <div><input id="cres${i}" placeholder="Residue ID (e.g. 1)"></div>
-      </div>`;
-    updateClassMembers(i);
-  }
-}
-
-function updateClassMembers(index) {
-  const cls = document.getElementById(`class${index}`).value;
-  const members = classes[cls].map(code => {
-    const aa = aminoAcids.find(a => a.code === code);
-    return `${aa.one} (${aa.code.toUpperCase()} - ${aa.name})`;
-  }).join(', ');
-  document.getElementById(`classMembers${index}`).textContent = `Members: ${members}`;
+// Cartesian product helper
+function cartesianProduct(arrays) {
+  return arrays.reduce((acc, curr) => {
+    const out = [];
+    for (const a of acc) {
+      for (const b of curr) out.push(a.concat([b]));
+    }
+    return out;
+  }, [[]]);
 }
 
 function generateScript(mode) {
@@ -281,35 +262,72 @@ function generateScript(mode) {
   const steps = document.getElementById('nsteps').value || 2000;
   const cgsteps = document.getElementById('cgsteps').value || 200;
 
-  let script = buildHeader();
+  const openCmd = buildOpenCommand();
   const suffix = includeMin ? '_min' : '';
+
+  let scriptLines = [];
+  scriptLines.push('from chimera import runCommand');
 
   if (mode === 'single') {
     const count = parseInt(document.getElementById('mutationCount').value);
+    // open once, apply all swaps, then save ONE output
+    scriptLines.push(openCmd);
+
+    let nameParts = [];
     for (let i = 1; i <= count; i++) {
       const chain = document.getElementById(`chain${i}`).value.trim();
       const res = document.getElementById(`res${i}`).value.trim();
       const aa = document.getElementById(`aa${i}`).value.trim();
-      script.push(`runCommand(u'swapaa ${aa} :${res}.${chain} preserve true')`);
-      if (includeMin) script.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
-      script.push(`runCommand(u'write 0 ${outPrefix}${aa}_${res}${suffix}.${fmt}')`);
+      scriptLines.push(`runCommand(u'swapaa ${aa} :${res}.${chain} preserve true')`);
+      nameParts.push(`${aa}_${res}`);
     }
+
+    if (includeMin) {
+      scriptLines.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
+    }
+
+    const comboName = nameParts.join('-');
+    scriptLines.push(`runCommand(u'write 0 ${outPrefix}${comboName}${suffix}.${fmt}')`);
+    scriptLines.push('runCommand("close all")');
+    return scriptLines.join('\n');
   } else {
+    // CLASSWISE (unchanged)
     const n = parseInt(document.getElementById('numClasses').value);
+    if (n <= 0) return '';
+
+    const positions = [];
     for (let i = 1; i <= n; i++) {
       const cls = document.getElementById(`class${i}`).value;
       const chain = document.getElementById(`cchain${i}`).value.trim();
       const res = document.getElementById(`cres${i}`).value.trim();
-      classes[cls].forEach(aa => {
-        script.push(`runCommand(u'swapaa ${aa} :${res}.${chain} preserve true')`);
-        if (includeMin) script.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
-        script.push(`runCommand(u'write 0 ${outPrefix}${aa}_${res}${suffix}.${fmt}')`);
-      });
+      const aas = classes[cls] || [];
+      const arr = aas.map(code => ({ code, chain, res }));
+      positions.push(arr);
     }
-  }
 
-  script.push('runCommand("close all")');
-  return script.join('\n');
+    const combos = cartesianProduct(positions);
+
+    combos.forEach((combo, idx) => {
+      scriptLines.push('runCommand("close all")');
+      scriptLines.push(openCmd);
+
+      const nameParts = combo.map(item => `${item.code}_${item.res}`);
+      const comboName = nameParts.join('-');
+
+      combo.forEach(item => {
+        scriptLines.push(`runCommand(u'swapaa ${item.code} :${item.res}.${item.chain} preserve true')`);
+      });
+
+      if (includeMin) {
+        scriptLines.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
+      }
+
+      scriptLines.push(`runCommand(u'write 0 ${outPrefix}${comboName}${suffix}.${fmt}')`);
+    });
+
+    scriptLines.push('runCommand("close all")');
+    return scriptLines.join('\n');
+  }
 }
 
 function generatePreview(mode) {
@@ -319,7 +337,7 @@ function generatePreview(mode) {
 
 function downloadScript(mode) {
   const script = generateScript(mode);
-  const filename = mode === 'single' ? 'multiple_mutations.py' : 'classwise_mutations.py';
+  const filename = mode === 'single' ? 'multiple_mutations.py' : 'classwise_mutations_combinations.py';
   const blob = new Blob([script], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
