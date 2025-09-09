@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PROTAC Mutation</title>
+<style>
+  :root {
+    --bg: #E9F5FF;
+    --card: #ffffffb7;
+    --accent: #0B77F9;
+    --accent-dark: #0657B6;
+    --accent-light: rgba(11, 119, 249, 0.08);
+    --text: #1f2937;
+    --muted: #6b7280;
+    --success: #16a34a;
+    --shadow: rgba(2,18,46,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg), #014b96);
+    color: var(--text);
+  }
+
+  .container { max-width: 1100px; margin: 40px auto; padding: 0 16px; }
+  .card { background: var(--card); border-radius: 16px; box-shadow: 0 10px 30px var(--shadow); padding: 32px; }
+
+  header { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
+  header img { width: 60px; height: 60px; object-fit: contain; }
+  h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: bold; color: var(--accent-dark); }
+  p.lead { text-align: center; color: var(--muted); font-size: 15px; margin: 8px 0 24px; }
+
+  h3 { margin-top: 24px; color: var(--accent-dark); font-size: 18px; font-weight: bold; }
+
+  label { font-weight: 600; font-size: 14px; display: block; margin: 8px 0 4px; }
+
+  input, select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s border;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+  .btn {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    background: var(--accent);
+    color: white;
+    transition: 0.2s transform, 0.2s background;
+    box-shadow: 0 10px 20px rgba(11,119,249,.15);
+  }
+  .btn:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    box-shadow: none;
+  }
+  .btn-outline:hover { background: var(--accent-light); }
+
+  .btn.active { background: var(--accent-dark); color: #fff; }
+
+  .command {
+    font-family: monospace;
+    color: var(--success);
+    white-space: pre-wrap;
+    background: #f6fdf8;
+    border: 1px dashed #cdebd6;
+    padding: 12px;
+    border-radius: 10px;
+    margin-top: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .class-members {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <header>
+      <h1>Peptide Mutation </h1>
+    </header>
+    <p class="lead">Generate ready-to-use UCSF Chimera Python scripts with desired mutation and optional minimization.</p>
+
+    <!-- Structure Input -->
+    <h3>1) Structural Inputs</h3>
+    <div class="grid grid-2">
+      <div>
+        <label for="pdbId">PDB ID</label>
+        <input id="pdbId" type="text" placeholder="e.g. 1ABC">
+      </div>
+      <div>
+        <label for="pdbPath">Local PDB structure file path </label>
+        <input id="pdbPath" type="text" placeholder="e.g. \\home\\user\\model.pdb">
+      </div>
+      <div>
+        <label for="downloadLocation">Output structure location</label>
+        <input id="downloadLocation" type="text" placeholder="e.g. \\home\\user\\out_folder\\">
+      </div>
+      <div>
+        <label for="outputFormat">Desired Output Format</label>
+        <select id="outputFormat">
+          <option value="pdb">PDB</option>
+          <option value="mol2">mol2</option>
+          <option value="cif">mmCIF</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Minimization -->
+    <h3>2) Minimization (optional)</h3>
+    <label>
+      <input type="checkbox" id="includeMinimization" checked onchange="toggleMinSteps()"> Select to perform energy minimization
+    </label>
+    <div id="nstepsContainer">
+      <label for="nsteps">Enter number of Steepest Descent Steps</label>
+      <input type="number" id="nsteps" min="0" placeholder="e.g. 2000">
+      <label for="cgsteps">Enter number of Conjugate Gradient Steps</label>
+      <input type="number" id="cgsteps" min="0" placeholder="e.g. 200">
+    </div>
+
+    <!-- Mutation Mode -->
+    <h3>3) Mutation Mode</h3>
+    <div class="grid grid-2">
+      <button id="btnSingle" class="btn btn-outline" onclick="selectMode('single')">Single / Multiple</button>
+      <button id="btnClasswise" class="btn btn-outline" onclick="selectMode('classwise')">Class-wise</button>
+    </div>
+
+    <!-- Single Mode -->
+    <div id="single" style="margin-top: 20px;">
+      <label for="mutationCount">Enter number of mutations</label>
+      <input type="number" id="mutationCount" value="1" min="1" max="10">
+      <button class="btn" onclick="addMutationInputs()">Generate Mutation Inputs</button>
+      <div id="dynamicInputs" class="grid"></div>
+      <button class="btn" onclick="generatePreview('single')">Preview Script</button>
+      <button class="btn btn-outline" onclick="downloadScript('single')">Download Script</button>
+    </div>
+
+    <!-- Class-wise Mode -->
+    <div id="classwise" class="hidden" style="margin-top: 20px;">
+      <label for="numClasses">Enter number of classes</label>
+      <input type="number" id="numClasses" value="1" min="1" max="5">
+      <button class="btn" onclick="showClassFields()">Generate Class Fields</button>
+      <div id="classInputs"></div>
+      <button class="btn" onclick="generatePreview('classwise')">Preview Script</button>
+      <button class="btn btn-outline" onclick="downloadScript('classwise')">Download Script</button>
+    </div>
+
+    <!-- Script Preview -->
+    <h3>Generated Script Preview</h3>
+    <pre id="scriptOutput" class="command"></pre>
+  </div>
+</div>
+
+<script>
+const aminoAcids = [
+  { code: "ala", one: "A", name: "Alanine" }, { code: "arg", one: "R", name: "Arginine" },
+  { code: "asn", one: "N", name: "Asparagine" }, { code: "asp", one: "D", name: "Aspartic Acid" },
+  { code: "cys", one: "C", name: "Cysteine" }, { code: "gln", one: "Q", name: "Glutamine" },
+  { code: "glu", one: "E", name: "Glutamic Acid" }, { code: "gly", one: "G", name: "Glycine" },
+  { code: "his", one: "H", name: "Histidine" }, { code: "ile", one: "I", name: "Isoleucine" },
+  { code: "leu", one: "L", name: "Leucine" }, { code: "lys", one: "K", name: "Lysine" },
+  { code: "met", one: "M", name: "Methionine" }, { code: "phe", one: "F", name: "Phenylalanine" },
+  { code: "pro", one: "P", name: "Proline" }, { code: "ser", one: "S", name: "Serine" },
+  { code: "thr", one: "T", name: "Threonine" }, { code: "trp", one: "W", name: "Tryptophan" },
+  { code: "tyr", one: "Y", name: "Tyrosine" }, { code: "val", one: "V", name: "Valine" }
+];
+
+const classes = {
+  Hydrophobic: ["ala","val","ile","leu","gly","met","pro"],
+  Aromatic: ["phe","tyr","trp"],
+  Polar: ["ser","thr","cys","asn","gln"],
+  Acidic: ["asp","glu"],
+  Basic: ["lys","arg","his"]
+};
+
+function toggleMinSteps() {
+  document.getElementById('nstepsContainer').classList.toggle('hidden', 
+    !document.getElementById('includeMinimization').checked);
+}
+
+function selectMode(mode) {
+  document.getElementById('single').classList.toggle('hidden', mode !== 'single');
+  document.getElementById('classwise').classList.toggle('hidden', mode !== 'classwise');
+  document.getElementById('btnSingle').classList.toggle('active', mode === 'single');
+  document.getElementById('btnClasswise').classList.toggle('active', mode === 'classwise');
+}
+
+function makeOutPrefix(path) {
+  if (!path.endsWith('/') && !path.endsWith('\\'))
+    path += path.includes('\\') ? '\\' : '/';
+  return path.replace(/\\/g, '\\\\');
+}
+
+function buildHeader() {
+  const pdbId = document.getElementById('pdbId').value.trim();
+  const pdbPath = document.getElementById('pdbPath').value.trim();
+  return [
+    'from chimera import runCommand',
+    pdbId ? `runCommand("open ${pdbId}")` : `runCommand('open ${pdbPath}')`
+  ];
+}
+
+function addMutationInputs() {
+  const count = parseInt(document.getElementById('mutationCount').value);
+  const div = document.getElementById('dynamicInputs');
+  div.innerHTML = '';
+  for (let i = 1; i <= count; i++) {
+    div.innerHTML += `
+      <div class="row">
+        <div><input id="chain${i}" placeholder="Chain (e.g. A)"></div>
+        <div><input id="res${i}" placeholder="Residue ID (e.g. 2)"></div>
+        <div><select id="aa${i}">
+          ${aminoAcids.map(a => `<option value="${a.code}">${a.one} (${a.code.toUpperCase()} - ${a.name})</option>`).join('')}
+        </select></div>
+      </div>`;
+  }
+}
+
+function showClassFields() {
+  const n = parseInt(document.getElementById('numClasses').value);
+  const div = document.getElementById('classInputs');
+  div.innerHTML = '';
+  for (let i = 1; i <= n; i++) {
+    div.innerHTML += `
+      <div class="row">
+        <div>
+          <select id="class${i}" onchange="updateClassMembers(${i})">
+            ${Object.keys(classes).map(k => `<option value="${k}">${k}</option>`).join('')}
+          </select>
+          <div id="classMembers${i}" class="class-members"></div>
+        </div>
+        <div><input id="cchain${i}" placeholder="Chain ID (e.g. A)"></div>
+        <div><input id="cres${i}" placeholder="Residue ID (e.g. 1)"></div>
+      </div>`;
+    updateClassMembers(i);
+  }
+}
+
+function updateClassMembers(index) {
+  const cls = document.getElementById(`class${index}`).value;
+  const members = classes[cls].map(code => {
+    const aa = aminoAcids.find(a => a.code === code);
+    return `${aa.one} (${aa.code.toUpperCase()} - ${aa.name})`;
+  }).join(', ');
+  document.getElementById(`classMembers${index}`).textContent = `Members: ${members}`;
+}
+
+function generateScript(mode) {
+  const fmt = document.getElementById('outputFormat').value;
+  const outPrefix = makeOutPrefix(document.getElementById('downloadLocation').value.trim());
+  const includeMin = document.getElementById('includeMinimization').checked;
+  const steps = document.getElementById('nsteps').value || 2000;
+  const cgsteps = document.getElementById('cgsteps').value || 200;
+
+  let script = buildHeader();
+  const suffix = includeMin ? '_min' : '';
+
+  if (mode === 'single') {
+    const count = parseInt(document.getElementById('mutationCount').value);
+    for (let i = 1; i <= count; i++) {
+      const chain = document.getElementById(`chain${i}`).value.trim();
+      const res = document.getElementById(`res${i}`).value.trim();
+      const aa = document.getElementById(`aa${i}`).value.trim();
+      script.push(`runCommand(u'swapaa ${aa} :${res}.${chain} preserve true')`);
+      if (includeMin) script.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
+      script.push(`runCommand(u'write 0 ${outPrefix}${aa}_${res}${suffix}.${fmt}')`);
+    }
+  } else {
+    const n = parseInt(document.getElementById('numClasses').value);
+    for (let i = 1; i <= n; i++) {
+      const cls = document.getElementById(`class${i}`).value;
+      const chain = document.getElementById(`cchain${i}`).value.trim();
+      const res = document.getElementById(`cres${i}`).value.trim();
+      classes[cls].forEach(aa => {
+        script.push(`runCommand(u'swapaa ${aa} :${res}.${chain} preserve true')`);
+        if (includeMin) script.push(`runCommand(u'minimize nsteps ${steps} cgsteps ${cgsteps} nogui true')`);
+        script.push(`runCommand(u'write 0 ${outPrefix}${aa}_${res}${suffix}.${fmt}')`);
+      });
+    }
+  }
+
+  script.push('runCommand("close all")');
+  return script.join('\n');
+}
+
+function generatePreview(mode) {
+  const script = generateScript(mode);
+  document.getElementById('scriptOutput').textContent = script;
+}
+
+function downloadScript(mode) {
+  const script = generateScript(mode);
+  const filename = mode === 'single' ? 'multiple_mutations.py' : 'classwise_mutations.py';
+  const blob = new Blob([script], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
