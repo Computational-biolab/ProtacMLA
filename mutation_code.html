@@ -175,13 +175,6 @@
         Class-wise mode will create a Chimera Python script that iterates over <b>all combinations</b> (cartesian product) of selected amino-acids — one from each class — and writes an output file for each combination. Each iteration re-opens the original structure so changes do not accumulate.
       </p>
     </div>
-
-    <!-- Script Preview -->
-    <h3>Generated Script Preview</h3>
-    <pre id="scriptOutput" class="command"></pre>
-  </div>
-</div>
-
 <script>
 const aminoAcids = [
   { code: "ala", one: "A", name: "Alanine" }, { code: "arg", one: "R", name: "Arginine" },
@@ -244,6 +237,37 @@ function addMutationInputs() {
   }
 }
 
+// ✅ Generate class fields with amino acid members shown
+function showClassFields() {
+  const n = parseInt(document.getElementById('numClasses').value);
+  const div = document.getElementById('classInputs');
+  div.innerHTML = '';
+  for (let i = 1; i <= n; i++) {
+    div.innerHTML += `
+      <div class="row">
+        <div>
+          <select id="class${i}" onchange="updateClassMembers(${i})">
+            ${Object.keys(classes).map(cls => `<option value="${cls}">${cls}</option>`).join('')}
+          </select>
+          <div id="classMembers${i}" class="class-members"></div>
+        </div>
+        <div><input id="cchain${i}" placeholder="Chain (e.g. A)"></div>
+        <div><input id="cres${i}" placeholder="Residue ID (e.g. 50)"></div>
+      </div>`;
+    updateClassMembers(i); // initialize display
+  }
+}
+
+// ✅ Update amino acids display under dropdown
+function updateClassMembers(index) {
+  const cls = document.getElementById(`class${index}`).value;
+  const members = classes[cls].map(code => {
+    const aa = aminoAcids.find(a => a.code === code);
+    return `${aa.one} (${aa.code.toUpperCase()} - ${aa.name})`;
+  }).join(', ');
+  document.getElementById(`classMembers${index}`).textContent = `Members: ${members}`;
+}
+
 // Cartesian product helper
 function cartesianProduct(arrays) {
   return arrays.reduce((acc, curr) => {
@@ -270,7 +294,6 @@ function generateScript(mode) {
 
   if (mode === 'single') {
     const count = parseInt(document.getElementById('mutationCount').value);
-    // open once, apply all swaps, then save ONE output
     scriptLines.push(openCmd);
 
     let nameParts = [];
@@ -291,7 +314,6 @@ function generateScript(mode) {
     scriptLines.push('runCommand("close all")');
     return scriptLines.join('\n');
   } else {
-    // CLASSWISE (unchanged)
     const n = parseInt(document.getElementById('numClasses').value);
     if (n <= 0) return '';
 
@@ -307,7 +329,7 @@ function generateScript(mode) {
 
     const combos = cartesianProduct(positions);
 
-    combos.forEach((combo, idx) => {
+    combos.forEach(combo => {
       scriptLines.push('runCommand("close all")');
       scriptLines.push(openCmd);
 
@@ -349,6 +371,13 @@ function downloadScript(mode) {
   URL.revokeObjectURL(url);
 }
 </script>
+
+    <!-- Script Preview -->
+    <h3>Generated Script Preview</h3>
+    <pre id="scriptOutput" class="command"></pre>
+  </div>
+</div>
+
+
 </body>
 </html>
-
