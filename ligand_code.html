@@ -3,36 +3,42 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Ligand Finder (PDB ID or Upload)</title>
+<title>PROTAC Ligand Analysis</title>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
 <style>
-  :root{
+  :root {
     --bg:#e9f5ff;
     --fg:#0f172a;
     --card:#ffffff;
     --accent:#0ea5e9;
     --accent-dark:#0284c7;
     --muted:#64748b;
-    --ring: rgba(14,165,233,.35);
+    --ring:rgba(14,165,233,.35);
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu; background:var(--bg); color:var(--fg)}
+  body{
+    margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    background:var(--bg); color:var(--fg);
+  }
   .wrap{max-width:1100px;margin:40px auto;padding:0 16px}
-  .card{background:var(--card);border-radius:16px; box-shadow:0 10px 30px rgba(2,6,23,.08); padding:24px}
+  .card{
+    background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(2,6,23,.08); padding:24px;
+  }
   h1{margin:0 0 8px;font-size:clamp(22px,3vw,32px)}
   p.lead{margin:0 0 20px;color:var(--muted)}
   .grid{display:grid; gap:16px}
   @media (min-width:900px){ .grid{grid-template-columns:1.2fr 1fr} }
   .field{margin-bottom:12px}
   label{display:block;font-weight:600;margin:6px 0}
-  input[type="text"], input[type="file"]{
+  input[type="text"], input[type="file"], textarea{
     width:100%; padding:12px 14px; border:1px solid #dbe5f0; border-radius:12px; outline:none;
     background:#fbfdff;
   }
   input[type="text"]:focus{border-color:var(--accent); box-shadow:0 0 0 4px var(--ring)}
   .row{display:flex; gap:10px; align-items:center}
   .btn{
-    appearance:none;border:0;border-radius:12px;padding:12px 16px;font-weight:700;
-    background:var(--accent); color:#fff; cursor:pointer; transition:.15s;
+    appearance:none; border:0; border-radius:12px; padding:12px 16px;
+    font-weight:700; background:var(--accent); color:#fff; cursor:pointer; transition:.15s;
   }
   .btn:hover{background:var(--accent-dark)}
   .btn.secondary{background:#e2e8f0; color:#0f172a}
@@ -44,21 +50,45 @@
   th,td{padding:12px 10px; border-bottom:1px solid #eef3f9; text-align:left; vertical-align:top}
   th{background:#f1f7fd; font-size:14px}
   tbody tr:hover{background:#fafcff}
-  code.badge{display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px;
-    background:#eef6ff; color:#075985; padding:2px 8px; border-radius:999px; border:1px solid #dbeafe}
+  code.badge{
+    display:inline-block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px;
+    background:#eef6ff; color:#075985; padding:2px 8px; border-radius:999px; border:1px solid #dbeafe;
+  }
   .pill{display:inline-block; font-size:12px; padding:3px 8px; border-radius:999px; background:#f1f5f9; margin:2px 4px 0 0}
   .flex-between{display:flex; align-items:center; justify-content:space-between; gap:12px}
   .hidden{display:none}
-  .details-wrap{margin-top:20px; padding:20px; border-radius:12px; background:#fff; box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+  .details-wrap{
+    margin-top:20px; padding:20px; border-radius:12px; background:#fff; 
+    box-shadow:0 5px 15px rgba(0,0,0,0.1);
+  }
   .details-wrap h2{margin-top:0;font-size:18px;}
-  .details-wrap iframe, .details-wrap img{width:100%; height:400px; border:none; margin-top:15px;}
+  .details-wrap img{max-width:280px; border-radius:10px; display:block; margin:10px 0;}
+  .viewer3d {
+    width: 100%;
+    height: 400px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .viewer3d canvas {
+    position: absolute !important;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <h1> PROTAC Ligand analysis</h1>
-    <p class="lead">Enter a PDB ID or upload a <code>.pdb</code> file. The tool finds non-polymer ligands and enriches them via the RCSB ChemComp API.</p>
+    <h1>PROTAC Ligand Analysis</h1>
+    <p class="lead">Enter a PDB ID or upload a <code>.pdb</code> file. The tool finds non-polymer ligands and enriches them using RCSB and PubChem APIs.</p>
+
     <div class="grid">
       <div>
         <div class="field">
@@ -67,7 +97,7 @@
             <input id="pdbId" type="text" placeholder="e.g., 6LU7" />
             <button class="btn" id="btnFetch">Load by ID</button>
           </div>
-          <div class="note">We download the .pdb file from RCSB and analyze it in your browser.</div>
+          <div class="note">Downloads the .pdb file from RCSB and analyzes it locally.</div>
         </div>
         <div class="field">
           <label for="pdbFile">Or upload a .pdb file</label>
@@ -75,7 +105,7 @@
             <input id="pdbFile" type="file" accept=".pdb" />
             <button class="btn secondary" id="btnAnalyze">Analyze Upload</button>
           </div>
-          <div class="note">We read only in your browser; nothing is uploaded anywhere else.</div>
+          <div class="note">No data is uploaded — all processing is done in your browser.</div>
         </div>
         <div class="flex-between">
           <div class="status" id="status"></div>
@@ -86,14 +116,14 @@
         <div class="card" style="padding:16px">
           <strong>Exclusions (common non-ligands):</strong>
           <p class="note" style="margin:8px 0 12px">
-            We ignore standard amino acids, water, and typical ions/solvents by default.
-            You can add/remove three-letter codes below (comma-separated).
+            Standard amino acids, water, ions, and solvents are excluded by default.
           </p>
-          <textarea id="excludeBox" rows="6" style="width:100%; padding:10px; border-radius:12px; border:1px solid #dbe5f0;">ALA,ARG,ASN,ASP,CYS,GLN,GLU,GLY,HIS,ILE,LEU,LYS,MET,PHE,PRO,SER,THR,TRP,TYR,VAL,SEC,PYL,HOH,WAT,DOD,NA,CL,MG,ZN,CA,SO4,PO4,HEM,NAG,MAN,BMA,PEG,MPD,GOL</textarea>
-          <div class="note" style="margin-top:8px">Tip: Remove entries like <code>NAG</code> if you *do* want carbohydrates included.</div>
+          <textarea id="excludeBox" rows="6" style="width:100%;">ALA,ARG,ASN,ASP,CYS,GLN,GLU,GLY,HIS,ILE,LEU,LYS,MET,PHE,PRO,SER,THR,TRP,TYR,VAL,SEC,PYL,HOH,WAT,DOD,NA,CL,MG,ZN,CA,SO4,PO4,HEM,NAG,MAN,BMA,PEG,MPD,GOL</textarea>
+          <div class="note" style="margin-top:8px">Tip: Remove entries like <code>NAG</code> if you *want* carbohydrates included.</div>
         </div>
       </div>
     </div>
+
     <div class="table-wrap hidden" id="resultsWrap">
       <table id="resultsTable">
         <thead>
@@ -103,218 +133,186 @@
             <th>Formula</th>
             <th>Weight (g/mol)</th>
             <th>Instances (chain:resid)</th>
-            <th>Number of Atoms</th>
+            <th>Atoms</th>
             <th>Details</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+
     <div id="details" class="details-wrap hidden"></div>
   </div>
 </div>
+
 <script>
-  const STATUS = document.getElementById('status');
-  const RESULTS_WRAP = document.getElementById('resultsWrap');
-  const RESULTS_TBODY = document.querySelector('#resultsTable tbody');
-  const BTN_CSV = document.getElementById('btnCSV');
-  const DETAILS_WRAP = document.getElementById('details');
+const STATUS=document.getElementById('status');
+const RESULTS_WRAP=document.getElementById('resultsWrap');
+const RESULTS_TBODY=document.querySelector('#resultsTable tbody');
+const BTN_CSV=document.getElementById('btnCSV');
+const DETAILS_WRAP=document.getElementById('details');
+let ligandResults=[];
 
-  function setStatus(msg, isError=false){
-    STATUS.textContent = msg || '';
-    STATUS.style.color = isError ? '#b91c1c' : 'var(--muted)';
-  }
+function setStatus(msg,isError=false){
+  STATUS.textContent=msg||'';
+  STATUS.style.color=isError?'#b91c1c':'var(--muted)';
+}
 
-  function getExclusions(){
-    const raw = document.getElementById('excludeBox').value || '';
-    return new Set(raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
-  }
+function getExclusions(){
+  const raw=document.getElementById('excludeBox').value||'';
+  return new Set(raw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean));
+}
 
-  function parsePDBLigands(pdbText, excludeSet){
-    const lines = pdbText.split(/\r?\n/);
-    const hetGroups = new Map();
-    const polymerResidues = new Set();
-
-    for(const ln of lines){
-      if(ln.startsWith('ATOM')){
-        const resn = ln.slice(17,20).trim().toUpperCase();
-        polymerResidues.add(resn);
-      }
+function parsePDBLigands(pdbText,excludeSet){
+  const lines=pdbText.split(/\r?\n/);
+  const hetGroups=new Map();
+  const polymerResidues=new Set();
+  for(const ln of lines){
+    if(ln.startsWith('ATOM')){
+      const resn=ln.slice(17,20).trim().toUpperCase();
+      polymerResidues.add(resn);
     }
-
-    for(const ln of lines){
-      if(!ln.startsWith('HETATM')) continue;
-      const resn = ln.slice(17,20).trim().toUpperCase();
-      const chain = ln.slice(21,22).trim() || '';
-      const resid = ln.slice(22,26).trim();
-      const ins = ln.slice(26,27).trim();
-      if(excludeSet.has(resn) || polymerResidues.has(resn)) continue;
-      const key = `${resn}|${chain}|${resid}|${ins}`;
-      if(!hetGroups.has(key)){
-        hetGroups.set(key, {resn, chain, resid, ins, atoms:0});
-      }
-      hetGroups.get(key).atoms += 1;
-    }
-
-    const perCode = new Map();
-    for(const g of hetGroups.values()){
-      if(!perCode.has(g.resn)){
-        perCode.set(g.resn, { code: g.resn, instances: [], atomTotal:0 });
-      }
-      perCode.get(g.resn).instances.push({chain:g.chain, resid:g.resid, ins:g.ins, atoms:g.atoms});
-      perCode.get(g.resn).atomTotal += g.atoms;
-    }
-    return [...perCode.values()];
   }
-
-  async function fetchText(url){
-    const r = await fetch(url);
-    if(!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
-    return r.text();
+  for(const ln of lines){
+    if(!ln.startsWith('HETATM')) continue;
+    const resn=ln.slice(17,20).trim().toUpperCase();
+    const chain=ln.slice(21,22).trim()||'';
+    const resid=ln.slice(22,26).trim();
+    const ins=ln.slice(26,27).trim();
+    if(excludeSet.has(resn)||polymerResidues.has(resn)) continue;
+    const key=`${resn}|${chain}|${resid}|${ins}`;
+    if(!hetGroups.has(key)) hetGroups.set(key,{resn,chain,resid,ins,atoms:0});
+    hetGroups.get(key).atoms+=1;
   }
-
-  async function fetchJSON(url){
-    const r = await fetch(url);
-    if(!r.ok) return null;
-    return r.json();
+  const perCode=new Map();
+  for(const g of hetGroups.values()){
+    if(!perCode.has(g.resn)) perCode.set(g.resn,{code:g.resn,instances:[],atomTotal:0});
+    perCode.get(g.resn).instances.push({chain:g.chain,resid:g.resid,ins:g.ins,atoms:g.atoms});
+    perCode.get(g.resn).atomTotal+=g.atoms;
   }
+  return [...perCode.values()];
+}
 
-  async function enrichWithChemComp(items){
-    return Promise.all(items.map(async (it) => {
-      try {
-        const cc = await fetchJSON(`https://data.rcsb.org/rest/v1/core/chemcomp/${encodeURIComponent(it.code)}`);
-        if(cc?.chem_comp){
-          it.name = cc.chem_comp.name || '';
-          it.formula = cc.chem_comp.formula || '';
-          it.weight = cc.chem_comp.formula_weight || '';
-        }
-        const pubchemRes = await fetchJSON(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(it.name)}/cids/JSON`);
-        if (pubchemRes?.IdentifierList?.CID) {
-          it.cid = pubchemRes.IdentifierList.CID[0];
-        }
-      } catch (e) {
-        console.error(`Error enriching ${it.code}:`, e);
-      }
-      return it;
-    }));
-  }
+async function fetchJSON(url){const r=await fetch(url);if(!r.ok)return null;return r.json();}
 
-  function renderTable(items){
-    RESULTS_TBODY.innerHTML = '';
-    if(items.length === 0){
-      RESULTS_WRAP.classList.add('hidden');
-      BTN_CSV.classList.add('hidden');
-      setStatus('No ligands found (after exclusions).');
-      return;
-    }
-    for(const it of items){
-      const instText = it.instances
-        .map(x => `${x.chain || '-'}:${x.resid}${x.ins?x.ins:''}`)
-        .map(s => `<span class="pill">${s}</span>`).join(' ');
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><code class="badge">${it.code}</code></td>
-        <td>${it.name || '<span class="note">—</span>'}</td>
-        <td>${it.formula || '<span class="note">—</span>'}</td>
-        <td>${it.weight || '<span class="note">—</span>'}</td>
-        <td>${instText}</td>
-        <td>${it.atomTotal}</td>
-        <td><button class="btn" onclick="showDetails('${it.code}', '${it.name}', '${it.formula}', '${it.weight}', '${it.cid}')">View</button></td>
-      `;
-      RESULTS_TBODY.appendChild(tr);
-    }
-    RESULTS_WRAP.classList.remove('hidden');
-    BTN_CSV.classList.remove('hidden');
-  }
-
-  function toCSV(items){
-    const header = ['Ligand','Name','Formula','Weight_g_mol','Instances_chain:resid','TotalAtoms'];
-    const rows = items.map(it => [
-      it.code,
-      (it.name||'').replaceAll('"','""'),
-      (it.formula||'').replaceAll('"','""'),
-      it.weight ?? '',
-      it.instances.map(x => `${x.chain || '-'}:${x.resid}${x.ins?x.ins:''}`).join('|').replaceAll('"','""'),
-      it.atomTotal
-    ]);
-    const csv = [header, ...rows]
-      .map(r => r.map(v => `"${v}"`).join(','))
-      .join('\r\n');
-    return csv;
-  }
-
-  document.getElementById('btnFetch').addEventListener('click', async () => {
-    const id = (document.getElementById('pdbId').value || '').trim();
-    if(!id){ setStatus('Please enter a PDB ID.', true); return; }
-    const exclude = getExclusions();
-    const pdbId = id.toUpperCase();
-    setStatus(`Fetching PDB file for ${pdbId} ...`);
+async function enrichWithChemComp(items){
+  return Promise.all(items.map(async(it)=>{
     try{
-      const pdbText = await fetchText(`https://files.rcsb.org/download/${encodeURIComponent(pdbId)}.pdb`);
-      setStatus('Parsing ligands ...');
-      let ligs = parsePDBLigands(pdbText, exclude);
-      setStatus('Enriching with ChemComp data ...');
-      ligs = await enrichWithChemComp(ligs);
-      renderTable(ligs);
-      window.__lastLigands = ligs;
-      setStatus(`Found ${ligs.length} ligand type(s) in ${pdbId}.`);
-    }catch(err){
-      console.error(err);
-      setStatus(`Failed to load PDB ${pdbId}: ${err.message}`, true);
-      RESULTS_WRAP.classList.add('hidden');
-      BTN_CSV.classList.add('hidden');
-    }
-  });
+      const cc=await fetchJSON(`https://data.rcsb.org/rest/v1/core/chemcomp/${encodeURIComponent(it.code)}`);
+      if(cc?.chem_comp){
+        it.name=cc.chem_comp.name||'';
+        it.formula=cc.chem_comp.formula||'';
+        it.weight=cc.chem_comp.formula_weight||'';
+      }
+      const pubchemRes=await fetchJSON(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(it.name)}/cids/JSON`);
+      if(pubchemRes?.IdentifierList?.CID){it.cid=pubchemRes.IdentifierList.CID[0];}
+    }catch(e){console.error(e);}
+    return it;
+  }));
+}
 
-  document.getElementById('btnAnalyze').addEventListener('click', async () => {
-    const file = document.getElementById('pdbFile').files?.[0];
-    if(!file){ setStatus('Choose a .pdb file first.', true); return; }
-    const exclude = getExclusions();
-    setStatus(`Reading ${file.name} ...`);
-    try{
-      const text = await file.text();
-      setStatus('Parsing ligands ...');
-      let ligs = parsePDBLigands(text, exclude);
-      setStatus('Enriching with ChemComp data ...');
-      ligs = await enrichWithChemComp(ligs);
-      renderTable(ligs);
-      window.__lastLigands = ligs;
-      setStatus(`Found ${ligs.length} ligand type(s) in ${file.name}.`);
-    }catch(err){
-      console.error(err);
-      setStatus(`Failed to read file: ${err.message}`, true);
-      RESULTS_WRAP.classList.add('hidden');
-      BTN_CSV.classList.add('hidden');
-    }
-  });
-
-  BTN_CSV.addEventListener('click', () => {
-    const items = window.__lastLigands || [];
-    if(items.length === 0) return;
-    const csv = toCSV(items);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ligands.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  });
-
-  function showDetails(code,name,formula,weight,cid){
-    DETAILS_WRAP.classList.remove('hidden');
-    DETAILS_WRAP.innerHTML=`<h2>${code}</h2>
-      <p><b>Name:</b> ${name}</p>
-      <p><b>Formula:</b> ${formula}</p>
-      <p><b>Weight:</b> ${weight} g/mol</p>
-      <h3>2D Structure</h3>
-      ${cid?`<img src='https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/PNG' alt='2D Structure' />`:'<p>Not available</p>'}
-      <h3>3D Structure</h3>
-      ${cid?`<iframe src='https://pubchem.ncbi.nlm.nih.gov/compound/${cid}#section=3D-Conformer'></iframe>`:'<p>Not available</p>'}
-      ${cid?`<p style="margin-top:15px"><a href='https://pubchem.ncbi.nlm.nih.gov/compound/${cid}' target='_blank'>🔗 Explore more on PubChem</a></p>`:''}`;
+function renderTable(items){
+  RESULTS_TBODY.innerHTML='';
+  if(items.length===0){RESULTS_WRAP.classList.add('hidden');BTN_CSV.classList.add('hidden');setStatus('No ligands found.');return;}
+  ligandResults=items;
+  for(const it of items){
+    const instText=it.instances.map(x=>`${x.chain||'-'}:${x.resid}${x.ins?x.ins:''}`).map(s=>`<span class="pill">${s}</span>`).join(' ');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><code class="badge">${it.code}</code></td>
+      <td>${it.name||'<span class="note">—</span>'}</td>
+      <td>${it.formula||'<span class="note">—</span>'}</td>
+      <td>${it.weight||'<span class="note">—</span>'}</td>
+      <td>${instText}</td>
+      <td>${it.atomTotal}</td>
+      <td><button class="btn" onclick="showDetails('${it.code}','${it.name}','${it.formula}','${it.weight}','${it.cid||''}')">View</button></td>`;
+    RESULTS_TBODY.appendChild(tr);
   }
+  RESULTS_WRAP.classList.remove('hidden');
+  BTN_CSV.classList.remove('hidden');
+}
+
+BTN_CSV.addEventListener('click',()=>{
+  if(!ligandResults.length){alert("No ligand data to export.");return;}
+  const header=['Ligand','Name','Formula','Weight_g_mol','Instances','TotalAtoms'];
+  const rows=ligandResults.map(it=>[
+    it.code,it.name,it.formula,it.weight,
+    it.instances.map(x=>`${x.chain}:${x.resid}`).join('|'),
+    it.atomTotal
+  ]);
+  const csv=[header,...rows].map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='ligands.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('btnFetch').addEventListener('click',async()=>{
+  const id=document.getElementById('pdbId').value.trim();
+  if(!id)return setStatus('Enter a PDB ID',true);
+  const exclude=getExclusions();
+  try{
+    setStatus(`Fetching ${id}...`);
+    const pdbText=await fetch(`https://files.rcsb.org/download/${encodeURIComponent(id)}.pdb`).then(r=>r.text());
+    setStatus('Parsing ligands...');
+    let ligs=parsePDBLigands(pdbText,exclude);
+    setStatus('Enriching...');
+    ligs=await enrichWithChemComp(ligs);
+    renderTable(ligs);
+    setStatus(`Found ${ligs.length} ligand type(s).`);
+  }catch(e){setStatus(`Error: ${e.message}`,true);}
+});
+
+document.getElementById('btnAnalyze').addEventListener('click',async()=>{
+  const f=document.getElementById('pdbFile').files?.[0];
+  if(!f)return setStatus('Choose a .pdb file first',true);
+  setStatus(`Reading ${f.name}...`);
+  const exclude=getExclusions();
+  try{
+    const text=await f.text();
+    setStatus('Parsing ligands...');
+    let ligs=parsePDBLigands(text,exclude);
+    setStatus('Enriching...');
+    ligs=await enrichWithChemComp(ligs);
+    renderTable(ligs);
+    setStatus(`Found ${ligs.length} ligand type(s) in ${f.name}.`);
+  }catch(e){setStatus(`Error: ${e.message}`,true);}
+});
+
+async function showDetails(code,name,formula,weight,cid){
+  DETAILS_WRAP.classList.remove('hidden');
+  DETAILS_WRAP.innerHTML=`
+    <h2>${code}</h2>
+    <p><b>Name:</b> ${name}</p>
+    <p><b>Formula:</b> ${formula}</p>
+    <p><b>Weight:</b> ${weight} g/mol</p>
+    <h3>2D Structure</h3>
+    ${cid?`<img src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/PNG"/>`:'<p>Not available</p>'}
+    <h3>3D Structure</h3>
+    <div id="lig3d" class="viewer3d"><p>Loading 3D structure...</p></div>
+    ${cid?`<p><a href="https://pubchem.ncbi.nlm.nih.gov/compound/${cid}" target="_blank">🔗 Explore more on PubChem</a></p>`:''}`;
+
+  if(!cid)return;
+  setTimeout(async()=>{
+    const container=document.getElementById('lig3d');
+    try{
+      const sdfResp=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/record/SDF/?record_type=3d`);
+      if(!sdfResp.ok)throw new Error('3D not found');
+      const sdf=await sdfResp.text();
+      const viewer=$3Dmol.createViewer(container,{backgroundColor:'white'});
+      viewer.addModel(sdf,'sdf');
+      viewer.setStyle({}, {stick:{radius:0.2,colorscheme:'cyanCarbon'}});
+      viewer.zoomTo();
+      viewer.render();
+      new ResizeObserver(()=>viewer.resize()).observe(container);
+      window.addEventListener('resize',()=>viewer.resize());
+    }catch(e){
+      container.innerHTML=`<p style="color:#b91c1c;">3D unavailable: ${e.message}</p>`;
+    }
+  },200);
+}
 </script>
 </body>
 </html>
